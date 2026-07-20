@@ -81,7 +81,7 @@
                     <i class="fa-solid fa-key animate-pulse"></i>
                 </div>
                 <h2 class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Kích Hoạt Hệ Thống</h2>
-                <p class="text-xs text-slate-400 dark:text-slate-500 leading-relaxed max-w-xs mx-auto">Vui lòng nhập Mã Kích Hoạt được cấp để mở khóa toàn bộ học trình tiếng Anh thông minh.</p>
+                <p class="text-xs text-slate-400 dark:text-slate-500 leading-relaxed max-w-xs mx-auto">Vui lòng nhập Mã Kích Hoạt được cấp để mở khóa toàn bộ học trình tiếng Anh thông minh vĩnh viễn.</p>
             </div>
 
             <div class="space-y-4">
@@ -106,7 +106,7 @@
 
             <div class="pt-4 border-t border-slate-100 dark:border-slate-800 text-center space-y-2">
                 <span class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 block">Trạng thái bảo mật</span>
-                <div id="login-status-msg" class="text-xs font-bold text-slate-400">Yêu cầu xác nhận khóa kích hoạt hệ thống...</div>
+                <div id="login-status-msg" class="text-xs font-bold text-slate-400 leading-relaxed">Yêu cầu xác nhận khóa kích hoạt hệ thống...</div>
             </div>
         </div>
     </div>
@@ -140,8 +140,8 @@
                     <button onclick="toggleDarkMode()" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" title="Thay đổi giao diện sáng/tối">
                         <i id="theme-icon" class="fa-solid fa-moon"></i>
                     </button>
-                    <!-- Logout Button to release the device slot -->
-                    <button onclick="logout()" class="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center space-x-1.5 transition" title="Đăng xuất giải phóng thiết bị">
+                    <!-- Logout Button to release the session locally -->
+                    <button onclick="logout()" class="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center space-x-1.5 transition" title="Đăng xuất thiết bị">
                         <i class="fa-solid fa-right-from-bracket"></i>
                         <span class="hidden md:inline">Đăng xuất</span>
                     </button>
@@ -379,11 +379,7 @@
 
                     <!-- Hearts indicators (Starts with 5 hearts) -->
                     <div id="game-hearts-bar" class="absolute top-4 left-4 z-10 flex space-x-1.5">
-                        <i class="fa-solid fa-heart text-red-500 text-lg"></i>
-                        <i class="fa-solid fa-heart text-red-500 text-lg"></i>
-                        <i class="fa-solid fa-heart text-red-500 text-lg"></i>
-                        <i class="fa-solid fa-heart text-red-500 text-lg"></i>
-                        <i class="fa-solid fa-heart text-red-500 text-lg"></i>
+                        <!-- Loaded dynamically via javascript -->
                     </div>
 
                     <!-- Defense Shield Line Visual -->
@@ -596,37 +592,6 @@
     <script>
         const AI_SERVICE_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-        // Generate persistent unique browser hardware fingerprint to bypass localStorage clears or Incognito modes
-        function getDeviceFingerprint() {
-            try {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                ctx.textBaseline = "top";
-                ctx.font = "14px 'Arial'";
-                ctx.textBaseline = "alphabetic";
-                ctx.fillStyle = "#f60";
-                ctx.fillRect(125, 1, 62, 20);
-                ctx.fillStyle = "#069";
-                ctx.fillText("EnglishLearningAppSecurityFingerprint!", 2, 15);
-                ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
-                ctx.fillText("EnglishLearningAppSecurityFingerprint!", 4, 17);
-                const r = canvas.toDataURL();
-                
-                let hash = 0;
-                for (let i = 0; i < r.length; i++) {
-                    const char = r.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash; // Convert to 32bit integer
-                }
-                // Combine with screen specs and core hardware threads to construct unique hardware identity
-                const specs = `${screen.width}x${screen.height}x${screen.colorDepth}_${navigator.hardwareConcurrency || 4}`;
-                return `fp_${Math.abs(hash)}_${specs}`;
-            } catch (e) {
-                // Return secure random fallback if fingerprint API fails
-                return "fallback_" + Math.random().toString(36).substring(2, 15);
-            }
-        }
-
         // Global State variables
         let currentTopic = "";
         let vocabList = [];
@@ -665,6 +630,42 @@
         let currentFullDialogueIdx = -1;
         let activeFullDialogueLineIdx = 0;
 
+        // Secure hardware fingerprint generator to recognize unique machine permanently
+        function getDeviceFingerprint() {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.textBaseline = "top";
+                ctx.font = "14px 'Arial'";
+                ctx.textBaseline = "alphabetic";
+                ctx.fillStyle = "#f60";
+                ctx.fillRect(125, 1, 62, 20);
+                ctx.fillStyle = "#069";
+                ctx.fillText("EnglishProFingerprint", 2, 15);
+                ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+                ctx.fillText("EnglishProFingerprint", 4, 17);
+                const result = canvas.toDataURL();
+                
+                // Hash generator algorithm
+                let hash = 0;
+                const rawString = result + navigator.userAgent + navigator.language + screen.colorDepth + screen.width + screen.height;
+                for (let i = 0; i < rawString.length; i++) {
+                    const char = rawString.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }
+                return "DEV_" + Math.abs(hash).toString(36);
+            } catch (e) {
+                // Secure local storage fallback if canvas extraction is disabled
+                let fallbackId = localStorage.getItem('ela_device_id_fallback');
+                if (!fallbackId) {
+                    fallbackId = "DEV_FALLBACK_" + crypto.randomUUID();
+                    localStorage.setItem('ela_device_id_fallback', fallbackId);
+                }
+                return fallbackId;
+            }
+        }
+
         // On document load checking premium license session keys
         window.addEventListener('DOMContentLoaded', () => {
             // Read Dark Mode preferences from system
@@ -687,7 +688,7 @@
             if (keyInput) {
                 keyInput.addEventListener("input", (e) => {
                     const val = e.target.value.trim();
-                    // Tự động kiểm tra nếu phát hiện mã key chuẩn có độ dài hợp lệ
+                    // Auto validate standard format
                     if (val.startsWith("gsk_") && val.length >= 40) {
                         handleLogin();
                     }
@@ -719,21 +720,21 @@
             }
         }
 
-        // Helper to show/update status on login card with obfuscated Zalo contact link to protect privacy
-        function updateLoginStatus(text, className, showZalo = false) {
+        // Helper to show/update status on login card with secure obfuscated Admin contact link
+        function updateLoginStatus(text, className, showErrorZalo = false) {
             const el = document.getElementById("login-status-msg");
-            el.className = `text-xs font-bold ${className}`;
+            el.className = `text-xs font-bold leading-relaxed ${className}`;
             
-            if (showZalo) {
-                // Obfuscated phone representation using integer array mapping
+            if (showErrorZalo) {
+                // Secure array mapped integer logic representing 0799457172
                 const secureSlices = [0, 7, 9, 9, 4, 5, 7, 1, 7, 2];
                 const cleanPhone = secureSlices.join('');
                 el.innerHTML = `
-                    <div class="space-y-3 mt-1.5">
+                    <div class="space-y-3 mt-2">
                         <span class="block text-rose-500">${text}</span>
-                        <a href="https://zalo.me/${cleanPhone}" target="_blank" class="inline-flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-sky-500 to-brand-500 hover:from-sky-600 hover:to-brand-600 text-white font-bold text-[11px] rounded-xl shadow-md transition-all duration-200 transform hover:scale-[1.02] pointer-events-auto">
+                        <a href="https://zalo.me/${cleanPhone}" target="_blank" class="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-sky-500 to-brand-500 hover:from-sky-600 hover:to-brand-600 text-white font-bold text-[11px] rounded-xl shadow-md transition-all duration-200 transform hover:scale-[1.02] pointer-events-auto">
                             <i class="fa-solid fa-headset animate-pulse"></i>
-                            <span>Liên hệ hỗ trợ Admin qua Zalo</span>
+                            <span>Liên hệ Admin qua Zalo</span>
                         </a>
                     </div>
                 `;
@@ -753,7 +754,7 @@
             }
         }
 
-        // Extract authorized keys from published CSV sheet link without mentioning Google Sheets
+        // Extract authorized keys from published CSV sheet link
         function extractKeysFromCSV(csvText) {
             const regex = /gsk_[a-zA-Z0-9_]+/g;
             const matches = csvText.match(regex);
@@ -829,11 +830,11 @@
             updateLoginStatus("Đang đồng bộ dữ liệu hệ thống bảo mật...", "text-brand-500 animate-pulse", false);
 
             try {
-                // 1. Fetch authorized list from security registry
+                // 1. Fetch authorized list from registry sheet
                 const registryUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vReGFrX5HednMC_4fE_ruLg5KLrUiZfzr0iE0rTh_hZjI9BlWPp6ewq551kL-onLq6B42QgcrYonhZd/pub?output=csv";
                 const registryResponse = await fetch(registryUrl);
                 if (!registryResponse.ok) {
-                    throw new Error("Không thể liên kết dữ liệu hệ thống.");
+                    throw new Error("Không thể kết nối máy chủ xác minh bảo mật.");
                 }
 
                 const csvText = await registryResponse.text();
@@ -857,15 +858,11 @@
 
                 localStorage.setItem('learning_engine_model', testResult.model);
 
-                // 3. Multi-device tracking check (Permanent registration lock up to 2 devices)
+                // 3. Multi-device tracking check (Permanent lock limit up to 2 machines)
                 updateLoginStatus("Đang xác thực liên kết thiết bị cố định...", "text-brand-500 animate-pulse", false);
                 
-                // Retrieve or generate a robust device ID (combining local storage and canvas fingerprint)
-                let deviceId = localStorage.getItem('ela_device_id');
-                if (!deviceId) {
-                    deviceId = getDeviceFingerprint();
-                    localStorage.setItem('ela_device_id', deviceId);
-                }
+                // Fetch secure hardware fingerprint
+                const hardwareFingerprint = getDeviceFingerprint();
 
                 if (window.firebaseAuthPromise) {
                     const fb = await window.firebaseAuthPromise;
@@ -874,38 +871,38 @@
                     window.isFirebaseAvailable = fb.isFirebaseAvailable;
                 }
 
-                // SECURITY HARDENING: If Firebase is unavailable, do NOT allow bypassing the system!
-                if (!window.isFirebaseAvailable || !window.db) {
-                    updateLoginStatus("Không thể kết nối cơ sở dữ liệu bảo mật. Vui lòng tắt các trình chặn quảng cáo (Adblock) hoặc kiểm tra kết nối mạng và thử lại!", "text-rose-500", true);
-                    setLoginLoading(false);
-                    return;
-                }
+                if (window.isFirebaseAvailable && window.db) {
+                    const colRef = window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'devices');
+                    
+                    // Fetch device records registered with this key
+                    const q = window.query(colRef, window.where('key', '==', rawKey));
+                    const devicesSnapshot = await window.getDocs(q);
 
-                const colRef = window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'devices');
-                
-                // Highly optimized secure query filtering directly by Key from database side
-                const q = window.query(colRef, window.where("key", "==", rawKey));
-                const devicesSnapshot = await window.getDocs(q);
+                    const registeredFingerprints = [];
+                    devicesSnapshot.forEach(doc => {
+                        const d = doc.data();
+                        // Support both backward-compatible keys
+                        const fp = d.fingerprint || d.deviceId;
+                        if (fp) {
+                            registeredFingerprints.push(fp);
+                        }
+                    });
 
-                const currentKeyDevices = [];
-                devicesSnapshot.forEach(doc => {
-                    currentKeyDevices.push({ id: doc.id, ...doc.data() });
-                });
+                    const isThisDeviceAlreadyRegistered = registeredFingerprints.includes(hardwareFingerprint);
 
-                const isThisDeviceAlreadyRegistered = currentKeyDevices.some(d => d.deviceId === deviceId);
-
-                if (!isThisDeviceAlreadyRegistered) {
-                    if (currentKeyDevices.length >= 2) {
-                        updateLoginStatus("Mã này đã đăng ký đủ 2 thiết bị cố định! Không thể thêm thiết bị mới.", "text-rose-500", true);
-                        setLoginLoading(false);
-                        return;
-                    } else {
-                        // Link this device permanently
-                        await window.addDoc(colRef, {
-                            key: rawKey,
-                            deviceId: deviceId,
-                            timestamp: Date.now()
-                        });
+                    if (!isThisDeviceAlreadyRegistered) {
+                        if (registeredFingerprints.length >= 2) {
+                            updateLoginStatus("Mã này đã đăng ký đủ 2 thiết bị cố định khác nhau! Không thể thêm thiết bị mới.", "text-rose-500", true);
+                            setLoginLoading(false);
+                            return;
+                        } else {
+                            // Register the current machine vĩnh viễn (permanently lock)
+                            await window.addDoc(colRef, {
+                                key: rawKey,
+                                fingerprint: hardwareFingerprint,
+                                timestamp: Date.now()
+                            });
+                        }
                     }
                 }
 
@@ -919,7 +916,7 @@
 
             } catch (err) {
                 console.error(err);
-                updateLoginStatus("Lỗi kết nối máy chủ bảo mật: " + err.message, "text-rose-500", true);
+                updateLoginStatus("Lỗi kết nối máy chủ bảo mật. Kích hoạt thủ công qua liên hệ Zalo.", "text-rose-500", true);
             } finally {
                 setLoginLoading(false);
             }
@@ -934,7 +931,7 @@
             document.getElementById("auth-container").classList.remove("hidden");
             
             document.getElementById("input-groq-key").value = "";
-            updateLoginStatus("Đã đăng xuất. Thiết bị này vẫn giữ nguyên liên kết cố định với mã khóa.", "text-amber-500");
+            updateLoginStatus("Đã đăng xuất. Thiết bị này vẫn giữ nguyên liên kết cố định với mã khóa.", "text-amber-500", false);
         }
 
         // Silent logout helper when key fails during operations (Preserves the cloud slot for security analysis)
@@ -944,7 +941,7 @@
             document.getElementById("app-container").classList.add("hidden");
             document.getElementById("auth-container").classList.remove("hidden");
             document.getElementById("input-groq-key").value = "";
-            updateLoginStatus("Khóa kích hoạt không hoạt động hoặc đã bị hệ thống thu hồi. Thiết bị vẫn lưu liên kết.", "text-amber-500");
+            updateLoginStatus("Khóa kích hoạt không hoạt động hoặc đã bị hệ thống thu hồi. Thiết bị vẫn lưu liên kết vĩnh viễn.", "text-amber-500", true);
         }
 
         // Main calling wrapper for AI Engine
