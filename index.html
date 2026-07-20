@@ -154,7 +154,7 @@
         </header>
 
         <!-- Main Content Space -->
-        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col justify-start">
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 flex flex-col justify-start">
             
             <!-- PAGE 1: HOME (Trang chủ tìm kiếm) -->
             <section id="page-home" class="space-y-12 py-6">
@@ -511,6 +511,30 @@
             </section>
 
         </main>
+
+        <!-- Mobile Bottom Navigation (Only visible on screens smaller than md) -->
+        <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 z-50 flex justify-around items-center h-16 pb-safe shadow-[0_-4px_12px_rgba(0,0,0,0.04)] transition-colors duration-300">
+            <button onclick="navigate('home')" id="mobile-nav-home" class="flex flex-col items-center justify-center flex-1 py-1 text-brand-500 dark:text-brand-400 transition">
+                <i class="fa-solid fa-house text-lg"></i>
+                <span class="text-[10px] font-bold mt-1">Trang chủ</span>
+            </button>
+            <button onclick="navigate('vocab')" id="mobile-nav-vocab" class="flex flex-col items-center justify-center flex-1 py-1 text-slate-300 dark:text-slate-700 opacity-50 cursor-not-allowed" disabled>
+                <i class="fa-solid fa-book text-lg"></i>
+                <span class="text-[10px] font-bold mt-1">Từ vựng</span>
+            </button>
+            <button onclick="navigate('dialogue')" id="mobile-nav-dialogue" class="flex flex-col items-center justify-center flex-1 py-1 text-slate-300 dark:text-slate-700 opacity-50 cursor-not-allowed" disabled>
+                <i class="fa-solid fa-comments text-lg"></i>
+                <span class="text-[10px] font-bold mt-1">Hội thoại</span>
+            </button>
+            <button onclick="navigate('game')" id="mobile-nav-game" class="flex flex-col items-center justify-center flex-1 py-1 text-slate-300 dark:text-slate-700 opacity-50 cursor-not-allowed" disabled>
+                <i class="fa-solid fa-gamepad text-lg"></i>
+                <span class="text-[10px] font-bold mt-1">Chơi Game</span>
+            </button>
+            <button onclick="navigate('quiz')" id="mobile-nav-quiz" class="flex flex-col items-center justify-center flex-1 py-1 text-slate-300 dark:text-slate-700 opacity-50 cursor-not-allowed" disabled>
+                <i class="fa-solid fa-list-check text-lg"></i>
+                <span class="text-[10px] font-bold mt-1">Luyện tập</span>
+            </button>
+        </nav>
     </div>
 
     <!-- Toast Messages element -->
@@ -800,8 +824,8 @@
 
                 localStorage.setItem('learning_engine_model', testResult.model);
 
-                // 3. Multi-device tracking check (Limit to 2 using Firebase Cloud)
-                updateLoginStatus("Đang kiểm tra hạn mức thiết bị...", "text-brand-500 animate-pulse", false);
+                // 3. Multi-device tracking check (Permanent registration lock up to 2 devices)
+                updateLoginStatus("Đang xác thực liên kết thiết bị cố định...", "text-brand-500 animate-pulse", false);
                 let deviceId = localStorage.getItem('ela_device_id');
                 if (!deviceId) {
                     deviceId = crypto.randomUUID();
@@ -831,10 +855,11 @@
 
                     if (!isThisDeviceAlreadyRegistered) {
                         if (currentKeyDevices.length >= 2) {
-                            updateLoginStatus("Khóa kích hoạt này đã đăng nhập quá giới hạn 2 thiết bị tối đa!", "text-rose-500", true);
+                            updateLoginStatus("Mã này đã đăng ký đủ 2 thiết bị cố định! Không thể thêm thiết bị mới.", "text-rose-500", true);
                             setLoginLoading(false);
                             return;
                         } else {
+                            // Link this device permanently
                             await window.addDoc(colRef, {
                                 key: rawKey,
                                 deviceId: deviceId,
@@ -860,34 +885,8 @@
             }
         }
 
-        // Logout account and clear current device registration slot
+        // Logout account (Removes local session but preserves the permanent registration slot in Cloud Database)
         async function logout() {
-            const activeKey = localStorage.getItem('premium_license_key');
-            const deviceId = localStorage.getItem('ela_device_id');
-
-            if (activeKey && deviceId && window.isFirebaseAvailable && window.db) {
-                try {
-                    showToast("Đang thu hồi chứng nhận liên kết thiết bị...", '<i class="fa-solid fa-spinner animate-spin"></i>');
-                    const colRef = window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'devices');
-                    const devicesSnapshot = await window.getDocs(colRef);
-
-                    let registeredDocId = null;
-                    devicesSnapshot.forEach(doc => {
-                        const d = doc.data();
-                        if (d.key === activeKey && d.deviceId === deviceId) {
-                            registeredDocId = doc.id;
-                        }
-                    });
-
-                    if (registeredDocId) {
-                        const docRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'devices', registeredDocId);
-                        await window.deleteDoc(docRef);
-                    }
-                } catch (err) {
-                    console.error("Lỗi xóa kết nối thiết bị:", err);
-                }
-            }
-
             localStorage.removeItem('premium_license_key');
             localStorage.removeItem('learning_engine_model');
             
@@ -895,40 +894,17 @@
             document.getElementById("auth-container").classList.remove("hidden");
             
             document.getElementById("input-groq-key").value = "";
-            updateLoginStatus("Đã ngắt kết nối an toàn. Trạng thái thiết bị đã giải phóng.", "text-amber-500");
+            updateLoginStatus("Đã đăng xuất. Thiết bị này vẫn giữ nguyên liên kết cố định với mã khóa.", "text-amber-500");
         }
 
-        // Silent logout helper when key fails during operations
+        // Silent logout helper when key fails during operations (Preserves the cloud slot for security analysis)
         async function logoutSilently() {
-            const activeKey = localStorage.getItem('premium_license_key');
-            const deviceId = localStorage.getItem('ela_device_id');
-
-            if (activeKey && deviceId && window.isFirebaseAvailable && window.db) {
-                try {
-                    const colRef = window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'devices');
-                    const devicesSnapshot = await window.getDocs(colRef);
-                    let registeredDocId = null;
-                    devicesSnapshot.forEach(doc => {
-                        const d = doc.data();
-                        if (d.key === activeKey && d.deviceId === deviceId) {
-                            registeredDocId = doc.id;
-                        }
-                    });
-                    if (registeredDocId) {
-                        const docRef = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'devices', registeredDocId);
-                        await window.deleteDoc(docRef);
-                    }
-                } catch (err) {
-                    console.warn("Lỗi giải phóng kết nối thiết bị tự động:", err);
-                }
-            }
-
             localStorage.removeItem('premium_license_key');
             localStorage.removeItem('learning_engine_model');
             document.getElementById("app-container").classList.add("hidden");
             document.getElementById("auth-container").classList.remove("hidden");
             document.getElementById("input-groq-key").value = "";
-            updateLoginStatus("Khóa kích hoạt không hoạt động hoặc đã bị hệ thống thu hồi. Vui lòng thử lại bằng mã hợp lệ.", "text-amber-500");
+            updateLoginStatus("Khóa kích hoạt không hoạt động hoặc đã bị hệ thống thu hồi. Thiết bị vẫn lưu liên kết.", "text-amber-500");
         }
 
         // Main calling wrapper for AI Engine
@@ -1039,10 +1015,13 @@
             // Show active page
             document.getElementById(`page-${pageId}`).classList.remove("hidden");
 
-            // Update active menu buttons styling
+            // Update active menu buttons styling (Both Desktop & Mobile Nav)
             const menuBtns = ["home", "vocab", "dialogue", "game", "quiz"];
             menuBtns.forEach(m => {
                 const btn = document.getElementById(`nav-${m}`);
+                const mobileBtn = document.getElementById(`mobile-nav-${m}`);
+                
+                // Update Desktop buttons
                 if (btn) {
                     if (m === pageId) {
                         btn.className = "px-4 py-2 rounded-xl text-sm font-semibold transition bg-brand-50 text-brand-600 dark:bg-slate-800 dark:text-brand-400";
@@ -1051,6 +1030,19 @@
                             btn.className = "px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/60";
                         } else {
                             btn.className = "px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/60 opacity-50 cursor-not-allowed";
+                        }
+                    }
+                }
+
+                // Update Mobile bottom navigation buttons
+                if (mobileBtn) {
+                    if (m === pageId) {
+                        mobileBtn.className = "flex flex-col items-center justify-center flex-1 py-1 text-brand-500 dark:text-brand-400 transition";
+                    } else {
+                        if (vocabList.length > 0 || m === 'home') {
+                            mobileBtn.className = "flex flex-col items-center justify-center flex-1 py-1 text-slate-500 dark:text-slate-400 hover:text-brand-500 transition";
+                        } else {
+                            mobileBtn.className = "flex flex-col items-center justify-center flex-1 py-1 text-slate-300 dark:text-slate-700 opacity-50 cursor-not-allowed";
                         }
                     }
                 }
@@ -1069,9 +1061,14 @@
             const menuBtns = ["vocab", "dialogue", "game", "quiz"];
             menuBtns.forEach(m => {
                 const btn = document.getElementById(`nav-${m}`);
+                const mobileBtn = document.getElementById(`mobile-nav-${m}`);
                 if (btn) {
                     btn.removeAttribute("disabled");
                     btn.className = "px-4 py-2 rounded-xl text-sm font-semibold transition text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/60";
+                }
+                if (mobileBtn) {
+                    mobileBtn.removeAttribute("disabled");
+                    mobileBtn.className = "flex flex-col items-center justify-center flex-1 py-1 text-slate-500 dark:text-slate-400 hover:text-brand-500 transition";
                 }
             });
         }
