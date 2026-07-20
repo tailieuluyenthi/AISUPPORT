@@ -547,7 +547,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Environment declarations
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'english-learning-app';
@@ -589,10 +589,43 @@
         window.addDoc = addDoc;
         window.doc = doc;
         window.deleteDoc = deleteDoc;
+        window.query = query;
+        window.where = where;
     </script>
 
     <script>
         const AI_SERVICE_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+        // Generate persistent unique browser hardware fingerprint to bypass localStorage clears or Incognito modes
+        function getDeviceFingerprint() {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.textBaseline = "top";
+                ctx.font = "14px 'Arial'";
+                ctx.textBaseline = "alphabetic";
+                ctx.fillStyle = "#f60";
+                ctx.fillRect(125, 1, 62, 20);
+                ctx.fillStyle = "#069";
+                ctx.fillText("EnglishLearningAppSecurityFingerprint!", 2, 15);
+                ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+                ctx.fillText("EnglishLearningAppSecurityFingerprint!", 4, 17);
+                const r = canvas.toDataURL();
+                
+                let hash = 0;
+                for (let i = 0; i < r.length; i++) {
+                    const char = r.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // Convert to 32bit integer
+                }
+                // Combine with screen specs and core hardware threads to construct unique hardware identity
+                const specs = `${screen.width}x${screen.height}x${screen.colorDepth}_${navigator.hardwareConcurrency || 4}`;
+                return `fp_${Math.abs(hash)}_${specs}`;
+            } catch (e) {
+                // Return secure random fallback if fingerprint API fails
+                return "fallback_" + Math.random().toString(36).substring(2, 15);
+            }
+        }
 
         // Global State variables
         let currentTopic = "";
@@ -826,9 +859,11 @@
 
                 // 3. Multi-device tracking check (Permanent registration lock up to 2 devices)
                 updateLoginStatus("Đang xác thực liên kết thiết bị cố định...", "text-brand-500 animate-pulse", false);
+                
+                // Retrieve or generate a robust device ID (combining local storage and canvas fingerprint)
                 let deviceId = localStorage.getItem('ela_device_id');
                 if (!deviceId) {
-                    deviceId = crypto.randomUUID();
+                    deviceId = getDeviceFingerprint();
                     localStorage.setItem('ela_device_id', deviceId);
                 }
 
@@ -839,33 +874,38 @@
                     window.isFirebaseAvailable = fb.isFirebaseAvailable;
                 }
 
-                if (window.isFirebaseAvailable && window.db) {
-                    const colRef = window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'devices');
-                    const devicesSnapshot = await window.getDocs(colRef);
+                // SECURITY HARDENING: If Firebase is unavailable, do NOT allow bypassing the system!
+                if (!window.isFirebaseAvailable || !window.db) {
+                    updateLoginStatus("Không thể kết nối cơ sở dữ liệu bảo mật. Vui lòng tắt các trình chặn quảng cáo (Adblock) hoặc kiểm tra kết nối mạng và thử lại!", "text-rose-500", true);
+                    setLoginLoading(false);
+                    return;
+                }
 
-                    const currentKeyDevices = [];
-                    devicesSnapshot.forEach(doc => {
-                        const d = doc.data();
-                        if (d.key === rawKey) {
-                            currentKeyDevices.push({ id: doc.id, ...d });
-                        }
-                    });
+                const colRef = window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'devices');
+                
+                // Highly optimized secure query filtering directly by Key from database side
+                const q = window.query(colRef, window.where("key", "==", rawKey));
+                const devicesSnapshot = await window.getDocs(q);
 
-                    const isThisDeviceAlreadyRegistered = currentKeyDevices.some(d => d.deviceId === deviceId);
+                const currentKeyDevices = [];
+                devicesSnapshot.forEach(doc => {
+                    currentKeyDevices.push({ id: doc.id, ...doc.data() });
+                });
 
-                    if (!isThisDeviceAlreadyRegistered) {
-                        if (currentKeyDevices.length >= 2) {
-                            updateLoginStatus("Mã này đã đăng ký đủ 2 thiết bị cố định! Không thể thêm thiết bị mới.", "text-rose-500", true);
-                            setLoginLoading(false);
-                            return;
-                        } else {
-                            // Link this device permanently
-                            await window.addDoc(colRef, {
-                                key: rawKey,
-                                deviceId: deviceId,
-                                timestamp: Date.now()
-                            });
-                        }
+                const isThisDeviceAlreadyRegistered = currentKeyDevices.some(d => d.deviceId === deviceId);
+
+                if (!isThisDeviceAlreadyRegistered) {
+                    if (currentKeyDevices.length >= 2) {
+                        updateLoginStatus("Mã này đã đăng ký đủ 2 thiết bị cố định! Không thể thêm thiết bị mới.", "text-rose-500", true);
+                        setLoginLoading(false);
+                        return;
+                    } else {
+                        // Link this device permanently
+                        await window.addDoc(colRef, {
+                            key: rawKey,
+                            deviceId: deviceId,
+                            timestamp: Date.now()
+                        });
                     }
                 }
 
